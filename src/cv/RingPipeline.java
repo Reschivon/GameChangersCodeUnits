@@ -9,6 +9,7 @@ import org.opencv.imgproc.Imgproc;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class RingPipeline {
@@ -24,14 +25,14 @@ public class RingPipeline {
         Mat hsv = new Mat();
         Imgproc.cvtColor(m, hsv, Imgproc.COLOR_BGR2HSV);
 
-        //HighGui.imshow("HSV", hsv);
-
-        Mat inRange = new Mat();
+            //HighGui.imshow("HSV", hsv);
 
         //yellow range
+        Mat inRange = new Mat();
         Core.inRange(hsv, new Scalar(6, 62, 89), new Scalar(15, 255, 255), inRange);
         Imgproc.cvtColor(inRange, inRange, Imgproc.COLOR_GRAY2BGR);
-        //HighGui.imshow("inRange", inRange);
+
+            //HighGui.imshow("inRange", inRange);
 
         Mat region = inRange.clone();
         Core.bitwise_and(inRange, hsv, region);
@@ -39,16 +40,13 @@ public class RingPipeline {
         //edges
         Mat edge = new Mat();
         sobel(region, edge);
-        //dilate val
-        Mat dilateElem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2, 2));
-        Imgproc.dilate(edge, edge, dilateElem);
 
         Mat val = getChannel(edge, 2);
 
-        //HighGui.imshow("val", val);
+            //HighGui.imshow("val", val.clone());
 
         //dilate val
-        Mat Elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(10, 2));
+        Mat Elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(15, 3), new Point(5, 1));
         Imgproc.dilate(val, val, Elem);
         expand(val, val);
 
@@ -56,25 +54,33 @@ public class RingPipeline {
         Mat divided = new Mat();
         Core.subtract(region, val, divided);
 
-        Imgproc.threshold(divided, divided, 50, 255, Imgproc.THRESH_BINARY);
-
-        HighGui.imshow("divided", divided);
-
         Imgproc.cvtColor(divided, divided, Imgproc.COLOR_BGR2GRAY);
 
-        //distance transform
-        //Mat distance = new Mat();
-        //distance(divided, 1, distance);
+        //take advantage of the gradient in the real image
+        Imgproc.threshold(divided, divided, 50, 255, Imgproc.THRESH_BINARY);
 
+        //find contours
         List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(divided, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        filterContours(contours, 40);
 
         Mat showy = new Mat(m.rows(), m.cols(),CvType.CV_8UC3);
+        Imgproc.rectangle(showy, new Point(0,0), new Point(showy.rows(), showy.cols()), new Scalar(0,0,0), -1);
+
         drawContours(contours, showy);
         HighGui.imshow("showy", showy);
 
         HighGui.waitKey(0);
         System.exit(0);
+    }
+
+    public static  void filterContours(List<MatOfPoint> inp, double size){
+        for(int i=0;i<inp.size();i++){
+            if(Imgproc.contourArea(inp.get(i)) < size){
+                inp.remove(i);
+                i--;
+            }
+        }
     }
 
     public static void drawContours(List<MatOfPoint> inp, Mat showy){
