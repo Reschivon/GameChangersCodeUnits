@@ -6,52 +6,79 @@ import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
-import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class RingPipeline {
-    public static void main(String[] args) {
+    static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+    }
 
+    static Mat in = new Mat();
+    static Mat hsv = new Mat();
+    static Mat inRange = new Mat();
+    static Mat region = new Mat();
+    static Mat val = new Mat();
+    static Mat edge = new Mat();
+    static Mat divided = new Mat();
+    static Mat showy = new Mat();
+
+    static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 1), new Point(5, 0));
+    static Mat none = new Mat();
+
+    public static void main(String[] args) {
         //cv.Controls c = new cv.Controls();
 
-        Mat m = Imgcodecs.imread("D:/Onedrive/Desktop/field.jpg");
-        HighGui.imshow("jds", m);
+        // 1 - 6
+        for(int i=0;i<90;i++) {
+            String url = "D:/Onedrive/Desktop/cv/" + (int)(Math.random() * 6 + 1) + ".jpg";
+            System.out.println(url);
+            process(Imgcodecs.imread(url));
+        }
+
+
+        System.exit(0);
+
+    }
+    public static List<RotatedRect> process(Mat in){
+
+        Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
+        HighGui.imshow("jds", in);
+
+        //happens once per image size
+        if(showy.cols() != in.cols() || showy.rows() != in.rows())
+            showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);;
+
+        System.out.println(showy.size());
 
         //to hsv
-        Mat hsv = new Mat();
-        Imgproc.cvtColor(m, hsv, Imgproc.COLOR_BGR2HSV);
+        Imgproc.cvtColor(in, hsv, Imgproc.COLOR_BGR2HSV);
 
             //HighGui.imshow("HSV", hsv);
 
         //yellow range
-        Mat inRange = new Mat();
         Core.inRange(hsv, new Scalar(6, 62, 89), new Scalar(15, 255, 255), inRange);
         Imgproc.cvtColor(inRange, inRange, Imgproc.COLOR_GRAY2BGR);
 
             //HighGui.imshow("inRange", inRange);
 
-        Mat region = inRange.clone();
         Core.bitwise_and(inRange, hsv, region);
 
         //edges
-        Mat edge = new Mat();
         sobel(region, edge);
 
-        Mat val = getChannel(edge, 2);
+        val = getChannel(edge, 2);
+
+            //.imshow("val", val.clone());
+
+        //dilate val
+        Imgproc.dilate(val, val, elem);
+        expand(val, val);
 
             //HighGui.imshow("val", val.clone());
 
-        //dilate val
-        Mat Elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(15, 3), new Point(5, 1));
-        Imgproc.dilate(val, val, Elem);
-        expand(val, val);
-
         //split region of interest
-        Mat divided = new Mat();
         Core.subtract(region, val, divided);
 
         Imgproc.cvtColor(divided, divided, Imgproc.COLOR_BGR2GRAY);
@@ -61,20 +88,27 @@ public class RingPipeline {
 
         //find contours
         List<MatOfPoint> contours = new ArrayList<>();
-        Imgproc.findContours(divided, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(divided, contours, none, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
         filterContours(contours, 40);
 
-        Mat showy = new Mat(m.rows(), m.cols(),CvType.CV_8UC3);
-        Imgproc.rectangle(showy, new Point(0,0), new Point(showy.rows(), showy.cols()), new Scalar(0,0,0), -1);
+        Imgproc.rectangle(showy, new Point(0,0), new Point(showy.cols(), showy.rows()), new Scalar(0,0,0), -1);
 
         drawContours(contours, showy);
-        HighGui.imshow("showy", showy);
 
-        HighGui.waitKey(0);
-        System.exit(0);
+            //HighGui.imshow("showy", showy);
+
+        //HighGui.waitKey(0);
+
+        List<RotatedRect> bb = new ArrayList<>();
+        for(MatOfPoint c:contours){
+            //to matofpoint2f
+            bb.add(Imgproc.minAreaRect(new MatOfPoint2f(c.toArray())));
+        }
+
+        return bb;
     }
 
-    public static  void filterContours(List<MatOfPoint> inp, double size){
+    public static void filterContours(List<MatOfPoint> inp, double size){
         for(int i=0;i<inp.size();i++){
             if(Imgproc.contourArea(inp.get(i)) < size){
                 inp.remove(i);
@@ -94,14 +128,15 @@ public class RingPipeline {
         }
     }
 
+    //Not memory safe
     public static void distance (Mat inp, double thresh, Mat out){
         //distance transform
 
-        Mat distance = new Mat(inp.rows(), inp.cols(), CvType.CV_8UC1);
-        Imgproc.distanceTransform(inp, distance, Imgproc.DIST_C, 3);
+        out = new Mat(inp.rows(), inp.cols(), CvType.CV_8UC1);
+        Imgproc.distanceTransform(inp, out, Imgproc.DIST_C, 3);
         // [70, 255]
-        Imgproc.threshold(distance, distance, thresh, 255, Imgproc.THRESH_BINARY);
-        distance.convertTo(out, CvType.CV_8UC1);
+        Imgproc.threshold(out, out, thresh, 255, Imgproc.THRESH_BINARY);
+        out.convertTo(out, CvType.CV_8UC1);
     }
 
     public static void sum(Mat inp, Mat out){
@@ -113,6 +148,8 @@ public class RingPipeline {
         Core.add(channels.get(2), sum, sum);
 
         Core.multiply(sum, new Scalar(1.0/3), out);
+
+        sum.release();
     }
     public static Mat getChannel(Mat inp, int channel){
         List<Mat> channels = new ArrayList<>();
@@ -132,5 +169,8 @@ public class RingPipeline {
         Imgproc.Sobel(inp, edgeX, -1, 0, 1, 3, 1);
 
         Core.addWeighted(edgeX, 0.5, edgeY, 0.5, 0, edge);
+
+        edgeY.release();
+        edgeX.release();
     }
 }
