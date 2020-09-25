@@ -4,6 +4,7 @@ import movement.Mecanum;
 import odometry.Odometry;
 import pathgen.ImportPath;
 import pathgen.Path;
+import pathgen.PathPoint;
 import utility.RotationUtil;
 import utility.point;
 import utility.pose;
@@ -40,8 +41,10 @@ public class Follower {
             }
 
             //move robot towards i
-            double rotDiff = RotationUtil.turnLeftOrRight(position.r, path.get(i).dir, Math.PI * 2);
-            point transDiff = new point(path.get(i).x - position.x, path.get(i).y - position.y);
+            PathPoint target = path.get(i);
+            double rotDiff = RotationUtil.turnLeftOrRight(position.r, target.dir, Math.PI * 2);
+            point transDiff = new point(target.x - position.x, target.y - position.y);
+            transDiff.scale(target.speed);
             point transDiffIntrinsic = transDiff.rotate(-position.r);
             drivetrain.drive(transDiffIntrinsic.x, transDiffIntrinsic.y, rotDiff);
         }

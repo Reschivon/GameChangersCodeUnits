@@ -38,4 +38,9 @@ public class point {
         x = Math.cos(angle);
         y = Math.sin(angle);
     }
+
+    public void scale(double scale){
+        x *= scale;
+        y *= scale;
+    }
 }
