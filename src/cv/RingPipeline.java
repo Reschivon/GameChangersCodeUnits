@@ -44,8 +44,6 @@ public class RingPipeline {
     }
     public static List<RotatedRect> process(Mat in){
 
-
-
         Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
 
             HighGui.imshow("original", in);
@@ -54,12 +52,10 @@ public class RingPipeline {
         if(showy.cols() != in.cols() || showy.rows() != in.rows())
             showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);
 
-            System.out.println(showy.size());
-
         //to hsv
         Imgproc.cvtColor(in, hsv, Imgproc.COLOR_BGR2HSV);
 
-        //showHistogram(hsv, false);
+            //showHistogram(hsv, false);
 
         //yellow range
         Core.inRange(hsv, new Scalar(6, 62, 89), new Scalar(15, 255, 255), inRange);
@@ -67,7 +63,7 @@ public class RingPipeline {
 
             //HighGui.imshow("inRange", inRange);
 
-        // Keep in range regions only
+        //Keep in range regions only
         Core.bitwise_and(inRange, hsv, region);
 
         //edges
@@ -76,7 +72,7 @@ public class RingPipeline {
         //extract value component
         val = getChannel(edge, 2);
 
-            HighGui.imshow("val", val.clone());
+            //HighGui.imshow("val", val.clone());
 
         //binarize the value of edges
         bin = new Mat();
@@ -85,16 +81,16 @@ public class RingPipeline {
             HighGui.imshow("binary val", bin);
 
         //dilate binarized edges
-        //TODO Use Hough Transform
+        //TODO Use Hough Transform (the world is not ready yet)
         Imgproc.dilate(bin, bin, elem);
 
-            //HighGui.imshow("val", val.clone());
+        //hough(bin);
 
         //split region of interest by edges
         Imgproc.cvtColor(region, region, Imgproc.COLOR_BGR2GRAY);
         Core.subtract(region, bin, divided);
 
-            HighGui.imshow("divided", divided);
+            //HighGui.imshow("divided", divided);
 
         //find contours
         List<MatOfPoint> contours = new ArrayList<>();
@@ -180,16 +176,36 @@ public class RingPipeline {
         edgeY.release();
         edgeX.release();
     }
-    public static Mat getHoughPTransform(Mat image, double rho, double theta, int threshold) {
-        Mat result = new Mat(image.rows(), image.cols(), image.type(), new Scalar(0,0,0));
-        Mat lines = new Mat();
-        Imgproc.HoughLinesP(image, lines, rho, theta, threshold);
 
-        for (int i = 0; i < lines.cols(); i++) {
-            double[] val = lines.get(0, i);
-            Imgproc.line(result, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(0, 0, 255), 2);
+    public static void hough(Mat gray){
+        // Changing the color of the canny
+        Mat canvas = new Mat();
+        Imgproc.cvtColor(gray, canvas, Imgproc.COLOR_GRAY2BGR);
+
+        //Detecting the hough lines from (canny)
+        Mat lines = new Mat();
+        Imgproc.HoughLines(gray, lines, 1, Math.PI/180, 70);
+
+        //draw lines
+        for (int i = 0; i < lines.rows(); i++) {
+            double[] data = lines.get(i, 0);
+            double rho = data[0];
+            double theta = data[1];
+            double a = Math.cos(theta);
+            double b = Math.sin(theta);
+            double x0 = a*rho;
+            double y0 = b*rho;
+            //Drawing lines on the image
+            Point pt1 = new Point();
+            Point pt2 = new Point();
+            pt1.x = Math.round(x0 + 1000*(-b));
+            pt1.y = Math.round(y0 + 1000*(a));
+            pt2.x = Math.round(x0 - 1000*(-b));
+            pt2.y = Math.round(y0 - 1000 *(a));
+            Imgproc.line(canvas, pt1, pt2, new Scalar(0, 0, 255), 1);
         }
-        return result;
+
+        HighGui.imshow("res", canvas);
     }
 
 
