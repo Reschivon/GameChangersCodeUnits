@@ -7,7 +7,6 @@ import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class RingPipeline {
@@ -18,12 +17,13 @@ public class RingPipeline {
     static Mat hsv = new Mat();
     static Mat inRange = new Mat();
     static Mat region = new Mat();
-    static Mat val = new Mat();
     static Mat edge = new Mat();
+    static Mat val = new Mat();
+    static Mat bin = new Mat();
     static Mat divided = new Mat();
     static Mat showy = new Mat();
 
-    static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 1), new Point(5, 0));
+    static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 1), new Point(3, 0));
     static Mat none = new Mat();
 
     public static void main(String[] args) {
@@ -31,33 +31,35 @@ public class RingPipeline {
 
         // 1 - 6
         for(int i=1;i<6;i++) {
-            String url = "D:/Onedrive/Desktop/cv/" + (int)(i + 1) + ".jpg";
+            String url = "D:/Onedrive/Desktop/cv/" + (i + 1) + ".jpg";
             System.out.println(url);
             Mat in = Imgcodecs.imread(url);
             process(in);
             HighGui.waitKey();
-            HighGui.waitKey();
             in.release();
         }
 
-        //System.exit(0);
+        System.exit(0);
 
     }
     public static List<RotatedRect> process(Mat in){
 
+
+
         Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
-        HighGui.imshow("jds", in);
+
+            HighGui.imshow("original", in);
 
         //happens once per image size
         if(showy.cols() != in.cols() || showy.rows() != in.rows())
             showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);
 
-        System.out.println(showy.size());
+            System.out.println(showy.size());
 
         //to hsv
         Imgproc.cvtColor(in, hsv, Imgproc.COLOR_BGR2HSV);
 
-            //HighGui.imshow("HSV", hsv);
+        //showHistogram(hsv, false);
 
         //yellow range
         Core.inRange(hsv, new Scalar(6, 62, 89), new Scalar(15, 255, 255), inRange);
@@ -65,42 +67,49 @@ public class RingPipeline {
 
             //HighGui.imshow("inRange", inRange);
 
+        // Keep in range regions only
         Core.bitwise_and(inRange, hsv, region);
 
         //edges
         sobel(region, edge);
 
+        //extract value component
         val = getChannel(edge, 2);
 
-            //.imshow("val", val.clone());
+            HighGui.imshow("val", val.clone());
 
-        //dilate val
-        Imgproc.dilate(val, val, elem);
-        expand(val, val);
+        //binarize the value of edges
+        bin = new Mat();
+        Core.inRange(val, new Scalar(150), new Scalar(255), bin);
+
+            HighGui.imshow("binary val", bin);
+
+        //dilate binarized edges
+        //TODO Use Hough Transform
+        Imgproc.dilate(bin, bin, elem);
 
             //HighGui.imshow("val", val.clone());
 
-        //split region of interest
-        Core.subtract(region, val, divided);
+        //split region of interest by edges
+        Imgproc.cvtColor(region, region, Imgproc.COLOR_BGR2GRAY);
+        Core.subtract(region, bin, divided);
 
-        Imgproc.cvtColor(divided, divided, Imgproc.COLOR_BGR2GRAY);
-
-        //take advantage of the gradient in the real image
-        Imgproc.threshold(divided, divided, 50, 255, Imgproc.THRESH_BINARY);
+            HighGui.imshow("divided", divided);
 
         //find contours
         List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(divided, contours, none, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        //filter contours
         filterContours(contours, 40);
 
+        //draw contours
         Imgproc.rectangle(showy, new Point(0,0), new Point(showy.cols(), showy.rows()), new Scalar(0,0,0), -1);
-
         drawContours(contours, showy);
 
             HighGui.imshow("showy", showy);
 
-
-
+        // bounding boxes
         List<RotatedRect> bb = new ArrayList<>();
         for(MatOfPoint c:contours){
             //to matofpoint2f
@@ -158,10 +167,6 @@ public class RingPipeline {
         Core.split(inp, channels);
         return channels.get(channel);
     }
-    //1chan to 3chan
-    public static void expand(Mat inp, Mat dest){
-        Core.merge(Arrays.asList(inp, inp, inp), dest);
-    }
 
     public static void sobel(Mat inp, Mat edge){
         Mat edgeY = new Mat();
@@ -175,4 +180,92 @@ public class RingPipeline {
         edgeY.release();
         edgeX.release();
     }
+    public static Mat getHoughPTransform(Mat image, double rho, double theta, int threshold) {
+        Mat result = new Mat(image.rows(), image.cols(), image.type(), new Scalar(0,0,0));
+        Mat lines = new Mat();
+        Imgproc.HoughLinesP(image, lines, rho, theta, threshold);
+
+        for (int i = 0; i < lines.cols(); i++) {
+            double[] val = lines.get(0, i);
+            Imgproc.line(result, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(0, 0, 255), 2);
+        }
+        return result;
+    }
+
+
+    /**
+     * Compute and show the histogram for the given {@link Mat} image
+     *
+     * @param frame
+     *            the {@link Mat} image for which compute the histogram
+     * @param gray
+     *            is a grayscale image?
+     */
+    static void showHistogram(Mat frame, boolean gray)
+    {
+        // split the frames in multiple images
+        List<Mat> images = new ArrayList<Mat>();
+        Core.split(frame, images);
+
+        // set the number of bins at 256
+        MatOfInt histSize = new MatOfInt(256);
+        // only one channel
+        MatOfInt channels = new MatOfInt(0);
+        // set the ranges
+        MatOfFloat histRange = new MatOfFloat(0, 256);
+
+        // compute the histograms for the B, G and R components
+        Mat hist_b = new Mat();
+        Mat hist_g = new Mat();
+        Mat hist_r = new Mat();
+
+        // B component or gray image
+        Imgproc.calcHist(images.subList(0, 1), channels, new Mat(), hist_b, histSize, histRange, false);
+
+        // G and R components (if the image is not in gray scale)
+        if (!gray)
+        {
+            Imgproc.calcHist(images.subList(1, 2), channels, new Mat(), hist_g, histSize, histRange, false);
+            Imgproc.calcHist(images.subList(2, 3), channels, new Mat(), hist_r, histSize, histRange, false);
+        }
+
+        // draw the histogram
+        int hist_w = 150; // width of the histogram image
+        int hist_h = 150; // height of the histogram image
+        int bin_w = (int) Math.round(hist_w / histSize.get(0, 0)[0]);
+
+        Mat histImage = new Mat(hist_h, hist_w, CvType.CV_8UC3, new Scalar(0, 0, 0));
+        // normalize the result to [0, histImage.rows()]
+        Core.normalize(hist_b, hist_b, 0, histImage.rows(), Core.NORM_MINMAX, -1, new Mat());
+
+        // for G and R components
+        if (!gray)
+        {
+            Core.normalize(hist_g, hist_g, 0, histImage.rows(), Core.NORM_MINMAX, -1, new Mat());
+            Core.normalize(hist_r, hist_r, 0, histImage.rows(), Core.NORM_MINMAX, -1, new Mat());
+        }
+
+        // effectively draw the histogram(s)
+        for (int i = 1; i < histSize.get(0, 0)[0]; i++)
+        {
+            // B component or gray image
+            Imgproc.line(histImage, new Point(bin_w * (i - 1), hist_h - Math.round(hist_b.get(i - 1, 0)[0])),
+                    new Point(bin_w * (i), hist_h - Math.round(hist_b.get(i, 0)[0])), new Scalar(255, 0, 0), 2, 8, 0);
+            // G and R components (if the image is not in gray scale)
+            if (!gray)
+            {
+                Imgproc.line(histImage, new Point(bin_w * (i - 1), hist_h - Math.round(hist_g.get(i - 1, 0)[0])),
+                        new Point(bin_w * (i), hist_h - Math.round(hist_g.get(i, 0)[0])), new Scalar(0, 255, 0), 2, 8,
+                        0);
+                Imgproc.line(histImage, new Point(bin_w * (i - 1), hist_h - Math.round(hist_r.get(i - 1, 0)[0])),
+                        new Point(bin_w * (i), hist_h - Math.round(hist_r.get(i, 0)[0])), new Scalar(0, 0, 255), 2, 8,
+                        0);
+            }
+        }
+
+        // display the histogram...
+        HighGui.imshow("histogram", histImage);
+
+    }
+
 }
