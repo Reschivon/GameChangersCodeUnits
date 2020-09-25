@@ -17,8 +17,8 @@ public class PathPoint extends point {
     double xVel = 0;
     double yVel = 0;
 
-    double speed;
-    double dir = 0;
+    public double speed;
+    public double dir = 0;
 
     public PathPoint(double x, double y) {
         super(x, y);
@@ -80,11 +80,11 @@ public class PathPoint extends point {
         return abs(ang());// / (distTo(prev) + distTo(next));
     }
 
-    double angTo(PathPoint to){
+    double angTo(point to){
         return Math.atan2(to.y-y, to.x-x);
     }
 
-    double distTo(PathPoint to){
+    public double distTo(point to){
         return Math.hypot(to.y-y, to.x-x);
     }
 

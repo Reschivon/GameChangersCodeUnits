@@ -32,4 +32,10 @@ public class point {
     public double magnitude(){
         return Math.hypot(y, x);
     }
+
+    public void normalize(){
+        double angle = angle();
+        x = Math.cos(angle);
+        y = Math.sin(angle);
+    }
 }

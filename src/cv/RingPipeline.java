@@ -15,7 +15,6 @@ public class RingPipeline {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
-    static Mat in = new Mat();
     static Mat hsv = new Mat();
     static Mat inRange = new Mat();
     static Mat region = new Mat();
@@ -31,14 +30,17 @@ public class RingPipeline {
         //cv.Controls c = new cv.Controls();
 
         // 1 - 6
-        for(int i=0;i<90;i++) {
-            String url = "D:/Onedrive/Desktop/cv/" + (int)(Math.random() * 6 + 1) + ".jpg";
+        for(int i=1;i<6;i++) {
+            String url = "D:/Onedrive/Desktop/cv/" + (int)(i + 1) + ".jpg";
             System.out.println(url);
-            process(Imgcodecs.imread(url));
+            Mat in = Imgcodecs.imread(url);
+            process(in);
+            HighGui.waitKey();
+            HighGui.waitKey();
+            in.release();
         }
 
-
-        System.exit(0);
+        //System.exit(0);
 
     }
     public static List<RotatedRect> process(Mat in){
@@ -48,7 +50,7 @@ public class RingPipeline {
 
         //happens once per image size
         if(showy.cols() != in.cols() || showy.rows() != in.rows())
-            showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);;
+            showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);
 
         System.out.println(showy.size());
 
@@ -95,9 +97,9 @@ public class RingPipeline {
 
         drawContours(contours, showy);
 
-            //HighGui.imshow("showy", showy);
+            HighGui.imshow("showy", showy);
 
-        //HighGui.waitKey(0);
+
 
         List<RotatedRect> bb = new ArrayList<>();
         for(MatOfPoint c:contours){
