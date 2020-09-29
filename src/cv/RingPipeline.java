@@ -30,8 +30,8 @@ public class RingPipeline {
         //cv.Controls c = new cv.Controls();
 
         // 1 - 6
-        for(int i=1;i<6;i++) {
-            String url = "D:/Onedrive/Desktop/cv/" + (i + 1) + ".jpg";
+        for(int i=1;i<2;i++) {
+            String url = "D:/Onedrive/Desktop/cv/" + "e1" + ".png";
             System.out.println(url);
             Mat in = Imgcodecs.imread(url);
             process(in);
@@ -97,7 +97,7 @@ public class RingPipeline {
         Imgproc.findContours(divided, contours, none, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
         //filter contours
-        filterContours(contours, 40);
+        filterContours(contours, 70);
 
         //draw contours
         Imgproc.rectangle(showy, new Point(0,0), new Point(showy.cols(), showy.rows()), new Scalar(0,0,0), -1);

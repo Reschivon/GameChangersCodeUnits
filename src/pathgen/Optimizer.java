@@ -13,6 +13,7 @@ public class Optimizer {
 
         display.show(path);
         path.subdivide(false);
+        path.subdivide(false);
 
         while (!display.exited) {
             path.velocities();
