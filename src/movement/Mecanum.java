@@ -2,9 +2,8 @@ package movement;
 
 import theLib.DcMotor;
 import theLib.DcMotorEx;
+import utility.maximum;
 import utility.point;
-
-import java.util.Arrays;
 
 public class Mecanum {
     DcMotorEx frontLeft;
@@ -12,12 +11,8 @@ public class Mecanum {
     DcMotorEx backLeft;
     DcMotorEx backRight;
 
-    int frontLeftI = 0;
-    int frontRightI = 1;
-    int backLeftI = 2;
-    int backRightI = 3;
-
     private static final double maxTicksPerSec = 1024;
+    private static final double wheelToCenter = 13;
 
     //top l, top r, bottom l, bottom r
     public Mecanum(DcMotorEx... motors){
@@ -30,26 +25,24 @@ public class Mecanum {
         backRight.setDirection(DcMotor.Direction.REVERSE);
     }
 
+    //turn speed be in robot angle
     public void drive(double xSpeed, double ySpeed, double turnSpeed){
+        // radians = circumference / radius
+        turnSpeed /= wheelToCenter;
 
         point move = new point(xSpeed, ySpeed);
         move.normalize();
 
-        double[] wheelSpeeds = new double[4];
-        wheelSpeeds[frontLeftI]     = move.y + move.x - turnSpeed;
-        wheelSpeeds[frontRightI]    = move.y - move.x + turnSpeed;
-        wheelSpeeds[backLeftI]      = move.y - move.x - turnSpeed;
-        wheelSpeeds[backRightI]     = move.y + move.x + turnSpeed;
+        maximum max = new maximum(
+                move.y + move.x - turnSpeed,  //FL
+                move.y - move.x + turnSpeed,        //FR
+                move.y - move.x - turnSpeed,        //BL
+                move.y + move.x + turnSpeed);       //BR
+        max.squishIntoRange(1.0);
 
-        //normalize
-        double max = Arrays.stream(wheelSpeeds).max().getAsDouble();
-        for(int i = 0;i<wheelSpeeds.length;i++){
-            wheelSpeeds[i] /= max;
-        }
-
-        frontLeft.setVelocity(  (int)(maxTicksPerSec * wheelSpeeds[frontLeftI]));
-        frontRight.setVelocity( (int)(maxTicksPerSec * wheelSpeeds[frontRightI]));
-        backLeft.setVelocity(   (int)(maxTicksPerSec * wheelSpeeds[backLeftI]));
-        backRight.setVelocity(  (int)(maxTicksPerSec * wheelSpeeds[backRightI]));
+        frontLeft.setVelocity(  (int)(maxTicksPerSec * max.nums[0]));
+        frontRight.setVelocity( (int)(maxTicksPerSec * max.nums[1]));
+        backLeft.setVelocity(   (int)(maxTicksPerSec * max.nums[2]));
+        backRight.setVelocity(  (int)(maxTicksPerSec * max.nums[3]));
     }
 }

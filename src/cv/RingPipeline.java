@@ -26,16 +26,25 @@ public class RingPipeline {
     static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 1), new Point(3, 0));
     static Mat none = new Mat();
 
+    //testing dirty fix
+    static String currName = "";
+
     public static void main(String[] args) {
         //cv.Controls c = new cv.Controls();
 
+        var files = new String[]{"1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"
+        , "e1.png", "e2.png", "e3.png", "e4.png"};
+
         // 1 - 6
-        for(int i=1;i<2;i++) {
-            String url = "D:/Onedrive/Desktop/cv/" + "e1" + ".png";
+        for(String name : files) {
+            String url = "D:/Onedrive/Desktop/cv/" + name;
+            currName = name;
             System.out.println(url);
             Mat in = Imgcodecs.imread(url);
+
             process(in);
-            HighGui.waitKey();
+
+            //HighGui.waitKey();
             in.release();
         }
 
@@ -104,6 +113,7 @@ public class RingPipeline {
         drawContours(contours, showy);
 
             HighGui.imshow("showy", showy);
+            Imgcodecs.imwrite("Output " + currName, showy);
 
         // bounding boxes
         List<RotatedRect> bb = new ArrayList<>();
