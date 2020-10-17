@@ -4,6 +4,7 @@ import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
 
 import java.util.ArrayList;
@@ -33,18 +34,19 @@ public class RingPipeline {
         //cv.Controls c = new cv.Controls();
 
         var files = new String[]{"1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"
-        , "e1.png", "e2.png", "e3.png", "e4.png"};
+        , "e1.png", "e2.png", "e3.png", "e4.png", "n1.jpg", "n2.jpg", "n3.jpg"};
 
         // 1 - 6
-        for(String name : files) {
-            String url = "D:/Onedrive/Desktop/cv/" + name;
-            currName = name;
+        for(int i = 1; i < 17; i++) {
+            //String name = files[i];
+            String url = "D:/OneDrive/Desktop/cv/outputs/" + "q" + i + ".jpg";
+            currName = "fuck";
             System.out.println(url);
             Mat in = Imgcodecs.imread(url);
 
             process(in);
 
-            //HighGui.waitKey();
+            HighGui.waitKey();
             in.release();
         }
 
@@ -55,6 +57,8 @@ public class RingPipeline {
 
         Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
 
+        CLAHE cla = Imgproc.createCLAHE(40, new Size(4, 4));
+
             HighGui.imshow("original", in);
 
         //happens once per image size
@@ -64,10 +68,20 @@ public class RingPipeline {
         //to hsv
         Imgproc.cvtColor(in, hsv, Imgproc.COLOR_BGR2HSV);
 
-            //showHistogram(hsv, false);
+            showHistogram(hsv, false);
+
+        List<Mat> mchan = new ArrayList<>();
+        Core.split(hsv, mchan);
+        cla.apply(mchan.get(2), mchan.get(2));
+        //Imgproc.equalizeHist(mchan.get(2), mchan.get(2));
+        Core.merge(mchan, hsv);
+
+        Mat temp = new Mat();
+        Imgproc.cvtColor(hsv, temp, Imgproc.COLOR_HSV2BGR);
+            HighGui.imshow("eqalized", temp);
 
         //yellow range
-        Core.inRange(hsv, new Scalar(6, 62, 89), new Scalar(15, 255, 255), inRange);
+        Core.inRange(hsv, new Scalar(6, 70, 80), new Scalar(21, 255, 255), inRange);
         Imgproc.cvtColor(inRange, inRange, Imgproc.COLOR_GRAY2BGR);
 
             //HighGui.imshow("inRange", inRange);
@@ -113,7 +127,7 @@ public class RingPipeline {
         drawContours(contours, showy);
 
             HighGui.imshow("showy", showy);
-            Imgcodecs.imwrite("Output " + currName, showy);
+            //Imgcodecs.imwrite("Output " + currName, showy);
 
         // bounding boxes
         List<RotatedRect> bb = new ArrayList<>();

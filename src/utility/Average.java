@@ -9,43 +9,26 @@ import java.util.function.Function;
  * This primarily handles edge cases
  */
 public class Average {
-    double sum = 0;
-    double weightSum = 0;
 
-    public void add(double value, double weight){
-        if (Double.isFinite(value)) {
-            sum += value * weight;
-            weightSum += weight;
+    public static <T> double ofAll(List<T> list, Function<T, Double> addend){
+        return ofAll(list, addend, (nothing) -> 1.0);
+    }
+
+    public static <T> double ofAll(List<T> list, Function<T, Double> addend, Function<T, Double> weighter){
+        double sum = 0;
+        double weightSum = 0;
+
+        for(T element : list){
+            double value = addend.apply(element);
+            double weight = weighter.apply(element);
+
+            if (Double.isFinite(value)) {
+                sum += value * weight;
+                weightSum += weight;
+            }
         }
-    }
 
-    public void add(double value){
-        add(value, 1);
-    }
-
-    public double average(){
         if (weightSum == 0) return 0;
         return sum / weightSum;
-    }
-
-    public <T> double ofAll(List<T> list, Function<T, Double> addend){
-        reset();
-        for(T element : list){
-            add(addend.apply(element));
-        }
-        return average();
-    }
-    public <T> double ofAll(List<T> list, Consumer<T> addend){
-        reset();
-        for(T element : list){
-            addend.accept(element);
-        }
-        return average();
-    }
-
-
-    public void reset(){
-        sum = 0;
-        weightSum = 0;
     }
 }

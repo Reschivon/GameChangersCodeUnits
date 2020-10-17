@@ -1,13 +1,7 @@
 package odometry;
 
-import utility.Average;
-import utility.Timing;
-import utility.point;
-import utility.pose;
-
+import utility.*;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class Odometry {
     // constants
@@ -49,41 +43,38 @@ public class Odometry {
     }
 
     public pose getDeltaPose(){
-        Average average = new Average();
 
         //average vertical translation
-        double vertTransNet = average.ofAll(wheels, (Function<OdometryWheel, Double>) wheel ->
-            wheel.distanceTraveledTowardsAngle(
-                    wheel.getDeltaPosition(), facingForward));
+        double vertTransNet = Average.ofAll(wheels,
+            wheel -> wheel.distanceTraveledTowardsAngle(
+                wheel.getDeltaPosition(), facingForward));
 
         //average horizontal translation
-        double horoTransNet = average.ofAll(wheels, (Function<OdometryWheel, Double>) wheel ->
-            wheel.distanceTraveledTowardsAngle(
-                    wheel.getDeltaPosition(), facingRight));
+        double horoTransNet = Average.ofAll(wheels,
+            wheel -> wheel.distanceTraveledTowardsAngle(
+                wheel.getDeltaPosition(), facingRight));
 
         //average rotation
-        double rotAngNet = average.ofAll(wheels, (Consumer<OdometryWheel>) wheel ->
-            average.add(
-                wheel.odoDeltaToBotAngle(
-                    wheel.getDeltaPosition()
-                        - wheel.dotProduct(horoTransNet, facingRight)
-                        - wheel.dotProduct(vertTransNet, facingForward),
-                    xCenterOfRotation, yCenterOfRotation),
-                //The farther, the heavier.  The more aligned to direction, the heavier
-                wheel.distanceToCenter() * Math.abs(wheel.dotProduct(
-                                1,
-                                wheel.ccTangentDir(xCenterOfRotation, yCenterOfRotation)))));
+        double rotAngNet = Average.ofAll(wheels,
+            wheel -> wheel.odoDeltaToBotAngle(
+                wheel.getDeltaPosition()
+                    - wheel.dotProduct(horoTransNet, facingRight)
+                    - wheel.dotProduct(vertTransNet, facingForward),
+                xCenterOfRotation, yCenterOfRotation),
+
+            //The farther, the heavier.  The more aligned to direction, the heavier
+            wheel -> wheel.distanceToCenter() * Math.abs(
+                wheel.dotProduct(1, wheel.ccTangentDir(xCenterOfRotation, yCenterOfRotation))));
 
         return new pose(horoTransNet, vertTransNet, rotAngNet);
     }
 
     /**
      * Given the total forward translation, total sideways translation, and
-     * total changed heading, and assuming that all three values change at a constant rate,
-     * calculate the final change in position.
-     * The calculus is tedious, but it works out nicely conceptually: imagine a line
-     * from (x,y) to (x', y') and curve it into a sector of angle theta
-     * @return New curved pose
+     * total changed heading, and assuming that all three values changed at a constant rate
+     * throughout the robot's travel, calculate the final change in position.
+     * Imagine a line from (x,y) to (x', y') and curve it into a sector of angle theta
+     * @return New pose with continuous curvature
      */
     public pose curvedTrajectoryTranslation(pose in){
         // if no rotation, then trig functions will be undefined

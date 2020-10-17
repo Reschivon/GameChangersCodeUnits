@@ -25,4 +25,10 @@ public class maximum {
             nums[i] /= max;
         }
     }
+
+    public static double[] squishIntoRange(double range, double... nums){
+        maximum max = new maximum(nums);
+        max.squishIntoRange(range);
+        return max.nums;
+    }
 }

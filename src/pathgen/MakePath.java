@@ -1,6 +1,6 @@
 package pathgen;
 
-public class Optimizer {
+public class MakePath {
     public static void main(String[] args) {
         display display = new display();
 
@@ -31,6 +31,7 @@ public class Optimizer {
                 path.updateEnds();
             }
         }
+
         ExportPath.write(path);
         System.exit(0);
     }

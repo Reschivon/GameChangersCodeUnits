@@ -14,10 +14,9 @@ public abstract class OdometryWheel {
     abstract long getRaw();
 
     // Offset is x and y displacement from center of rotation
-    // + angle that wheel is facing (in radians with 0 facing right).
-    // Make sure angle faces towards front of robot (unless sideways)
-    // Obviously, neither of the two possible angles of a sideways
-    // wheel is facing forwards. Just be consistent with sideways wheel angles
+    // and angle that wheel is facing (in trig coordinates).
+    // For axially aligned wheel angles, choose the angle that
+    // faces the POSITIVE direction of the axis
     public OdometryWheel(pose offset){
         this.offset = offset;
     }
@@ -41,9 +40,7 @@ public abstract class OdometryWheel {
     }
 
     double getDeltaPosition(){
-        // theta * radians = arc length
-        //return -1;
-        return (getDeltaTicks() / ticksPerRev) * radius;
+        return getDeltaTicks() / ticksPerRev * 2 * Math.PI * radius;
     }
 
     double distanceTraveledTowardsAngle(double deltaPosition, double targetAngle){

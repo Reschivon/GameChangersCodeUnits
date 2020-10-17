@@ -1,9 +1,7 @@
 package movement;
 
-import theLib.DcMotor;
-import theLib.DcMotorEx;
-import utility.maximum;
-import utility.point;
+import theLib.*;
+import utility.*;
 
 public class Mecanum {
     DcMotorEx frontLeft;
@@ -14,12 +12,11 @@ public class Mecanum {
     private static final double maxTicksPerSec = 1024;
     private static final double wheelToCenter = 13;
 
-    //top l, top r, bottom l, bottom r
-    public Mecanum(DcMotorEx... motors){
-        frontLeft   = motors[0];
-        frontRight  = motors[1];
-        backLeft    = motors[2];
-        backRight   = motors[3];
+    public Mecanum(DcMotorEx frontLeft, DcMotorEx frontRight, DcMotorEx backLeft, DcMotorEx backRight){
+        this.frontLeft   = frontLeft;
+        this.frontRight  = frontRight;
+        this.backLeft    = backLeft;
+        this.backRight   = backRight;
 
         frontRight.setDirection(DcMotor.Direction.REVERSE);
         backRight.setDirection(DcMotor.Direction.REVERSE);
@@ -33,16 +30,15 @@ public class Mecanum {
         point move = new point(xSpeed, ySpeed);
         move.normalize();
 
-        maximum max = new maximum(
+        double[] normalizedSpeeds = maximum.squishIntoRange(1.0,
                 move.y + move.x - turnSpeed,  //FL
                 move.y - move.x + turnSpeed,        //FR
                 move.y - move.x - turnSpeed,        //BL
                 move.y + move.x + turnSpeed);       //BR
-        max.squishIntoRange(1.0);
 
-        frontLeft.setVelocity(  (int)(maxTicksPerSec * max.nums[0]));
-        frontRight.setVelocity( (int)(maxTicksPerSec * max.nums[1]));
-        backLeft.setVelocity(   (int)(maxTicksPerSec * max.nums[2]));
-        backRight.setVelocity(  (int)(maxTicksPerSec * max.nums[3]));
+        frontLeft.setVelocity(  (int)(maxTicksPerSec * normalizedSpeeds[0]));
+        frontRight.setVelocity( (int)(maxTicksPerSec * normalizedSpeeds[1]));
+        backLeft.setVelocity(   (int)(maxTicksPerSec * normalizedSpeeds[2]));
+        backRight.setVelocity(  (int)(maxTicksPerSec * normalizedSpeeds[3]));
     }
 }

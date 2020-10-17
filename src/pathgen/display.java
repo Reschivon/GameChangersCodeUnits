@@ -80,13 +80,13 @@ public class display {
                 selected.y = panel.getHeight() - e.getY();
             }
         };
-        panel.setBackground(new Color(150, 150, 150));
+        panel.setBackground(new Color(200, 200, 200));
         panel.addMouseListener(listen);
         panel.addMouseMotionListener(listen);
 
         JPanel controlPanel = new JPanel();
 
-        JButton exit = new JButton("Exit");
+        JButton exit = new JButton("Export");
         exit.addActionListener(e -> exited = true);
         controlPanel.add(exit);
 
