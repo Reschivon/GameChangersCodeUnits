@@ -5,7 +5,7 @@ import utility.pose;
 
 public abstract class OdometryWheel {
     int ticksPerRev = 1024;
-    double radius = 3; //Centimeters
+    double radius = 3; 
     pose offset;
 
     private double prevTicks = 0;

@@ -15,7 +15,7 @@ public class Odometry {
     List<OdometryWheel> wheels;
     double xCenterOfRotation = 0;
     double yCenterOfRotation = 0;
-    volatile pose position;
+    public volatile pose position;
 
     public void start(){
         running = true;
