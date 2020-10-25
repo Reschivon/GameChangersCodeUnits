@@ -5,6 +5,7 @@ import org.opencv.core.Point;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.videoio.VideoCapture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +21,7 @@ public class RingPipeline {
     static Mat divided = new Mat();
     static Mat showy = new Mat();
 
-    static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(6, 2), new Point(3, 0));
+    static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(8, 1), new Point(4, 0));
     static Mat none = new Mat();
 
     //testing dirty fix
@@ -35,8 +36,9 @@ public class RingPipeline {
         "q9.jpg","q10.jpg", "q11.jpg","q12.jpg","q13.jpg","q14.jpg","q15.jpg",
         "q16.jpg"};
 
+        /*
         // 1 - 6
-        for(int i = 0; i < 29; i++) {
+        for(int i = 25; i < 29; i++) {
             String name = files[i];
             String url = "D:/OneDrive/Desktop/cv/" + name ;
             System.out.println(url);
@@ -46,29 +48,44 @@ public class RingPipeline {
 
             HighGui.waitKey();
             in.release();
-        }
+        }*/
 
-        System.exit(0);
+        VideoCapture capture = new VideoCapture();
+        capture.open(0);
+        while (capture.isOpened()){
+            Mat in = new Mat();
+            capture.read(in);
+
+            process(in);
+
+            HighGui.waitKey(1);
+            in.release();
+        }
+        capture.release();
+
+        //System.exit(0);
 
     }
     public static List<RotatedRect> process(Mat in){
 
+        Long start = System.currentTimeMillis();
+
         Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
 
-            HighGui.imshow("original", in);
+            //HighGui.imshow("original", in);
 
         //happens once per image size
         if(showy.cols() != in.cols() || showy.rows() != in.rows())
             showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);
 
         Mat yuv = new Mat();
-        Imgproc.cvtColor(in, yuv, Imgproc.COLOR_BGR2YUV);
+        Imgproc.cvtColor(in, yuv, Imgproc.COLOR_BGR2Lab);
 
         //find medians
         Scalar medians = median(yuv)    ;
         System.out.println("medians " + medians);
 
-        //get differences to medan
+        //get differences to median
         var diffs = new Mat();
         Core.absdiff(yuv, medians, diffs);
         var channels = new ArrayList<Mat>();
@@ -78,12 +95,13 @@ public class RingPipeline {
         //HighGui.imshow("blue", channels.get(1));
         //HighGui.imshow("red", channels.get(2));
 
-        //value channel
         Mat value = channels.get(0).clone();
 
         //color channel
         Mat color = new Mat();
         Core.add(channels.get(1), channels.get(2), color);
+
+            HighGui.imshow("color", color);
 
         //yellow range
         Core.inRange(color, new Scalar(30), new Scalar(255), inRange);
@@ -112,30 +130,33 @@ public class RingPipeline {
         //add the dilation to the original binarizeEdges
         Core.add(peripheralEdges, binarizedEdges, binarizedEdges);
 
-            HighGui.imshow("Binarized edge", binarizedEdges);
+            //HighGui.imshow("Binarized edge", binarizedEdges);
 
         //split region of interest by edges
         Core.subtract(inRange, binarizedEdges, divided);
 
-            HighGui.imshow("divided", divided);
+           // HighGui.imshow("divided", divided);
 
         //find contours
         List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(divided, contours, none, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
         //filter contours
-        List<RotatedRect> bb = filterContours(contours, 70);
+        List<RotatedRect> bb = filterContours(contours, 120);
 
         //draw contours
         Imgproc.rectangle(showy, new Point(0,0), new Point(showy.cols(), showy.rows()), new Scalar(0,0,0), -1);
         drawContours(contours, showy);
 
-            HighGui.imshow("showy", showy);
+            HighGui.imshow("showy", in);
             //Imgcodecs.imwrite("Output " + currName, showy);
 
         for(var r:bb){
-            drawRotatedRect(r, showy);
+            drawRotatedRect(r, in, 4);
         }
+
+        Imgproc.putText(in, String.valueOf(System.currentTimeMillis() - start), new Point(20, 20),
+                Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, new Scalar(255, 0,255), 2);
 
         return bb;
     }
@@ -146,7 +167,7 @@ public class RingPipeline {
 
         //resize
         Mat clone = new Mat();
-        Imgproc.resize(in.clone(), clone, new Size(64, 48));
+        Imgproc.resize(in.clone(), clone, new Size(32, 24));
 
         //get data
         clone.convertTo(clone, CvType.CV_16UC3); // New line added.
@@ -166,39 +187,37 @@ public class RingPipeline {
 
     public static List<RotatedRect> filterContours(List<MatOfPoint> inp, double size){
         var boundingRects = new ArrayList<RotatedRect>();
+        var contours = new ArrayList<MatOfPoint>();
+
         for(int i=0;i<inp.size();i++){
-            if(Imgproc.contourArea(inp.get(i)) < size){
-                inp.remove(i);
-                i--;
-            }else{
-                //bounding box
-                RotatedRect bound = Imgproc.minAreaRect(new MatOfPoint2f(inp.get(i).toArray()));
-
-                int toUpright = (int)(bound.angle - -45);
-                int turnsToRight = toUpright/90 + toUpright<0 ? 1:0;
-                boolean isUpright = turnsToRight%2 == 0;
-
-                if (isUpright) {
-                    if (bound.size.width > bound.size.height * 2) {
-                        boundingRects.add(bound);
-                    } else {
-                        inp.remove(i);
-                        i--;
-                    }
-                }else{
-                    if (bound.size.height > bound.size.width * 2) {
-                        boundingRects.add(bound);
-                    } else {
-                        inp.remove(i);
-                        i--;
-                    }
-                }
-
-                System.out.format("rect %.4f %.4f %.4f %s %n", bound.size.width, bound.size.height, bound.angle, isUpright?"upright":"fell down");
-                boundingRects.add(bound);
+            if(Imgproc.contourArea(inp.get(i)) < size) {
+                continue;
             }
-        }
 
+            //bounding box
+            RotatedRect bound = Imgproc.minAreaRect(new MatOfPoint2f(inp.get(i).toArray()));
+
+            int toUpright = (int)(bound.angle - -45);
+            int turnsToRight = toUpright/90 + toUpright<0 ? 1:0;
+            boolean isUpright = turnsToRight%2 == 0;
+
+            if (isUpright) {
+                if (bound.size.width > bound.size.height * 2) {
+                    boundingRects.add(bound);
+                    contours.add(inp.get(i));
+                }
+            }else{
+                if (bound.size.height > bound.size.width * 2) {
+                    boundingRects.add(bound);
+                    contours.add(inp.get(i));
+                }
+            }
+
+            //System.out.format("rect %.4f %.4f %.4f %s %n", bound.size.width, bound.size.height, bound.angle, isUpright?"upright":"fell down");
+
+        }
+        inp.clear();
+        inp.addAll(contours);
         return boundingRects;
     }
 
@@ -212,12 +231,14 @@ public class RingPipeline {
             Imgproc.drawContours(showy, inp, i, new Scalar(rand, rand2, rand3>128?128:rand3), -1);
         }
     }
-
     public static void drawRotatedRect(RotatedRect in, Mat canvas){
+        drawRotatedRect(in, canvas, 1);
+    }
+    public static void drawRotatedRect(RotatedRect in, Mat canvas, int thick){
         Point[] points = new Point[4];
         in.points(points);
         for(int i=0; i<4; ++i){
-            Imgproc.line(canvas, points[i], points[(i+1)%4], new Scalar(255,255,255));
+            Imgproc.line(canvas, points[i], points[(i+1)%4], new Scalar(255,0,255), thick);
         }
     }
 
