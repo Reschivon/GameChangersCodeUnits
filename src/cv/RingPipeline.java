@@ -4,8 +4,8 @@ import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.videoio.VideoCapture;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +20,7 @@ public class RingPipeline {
     static Mat binarizedEdges = new Mat();
     static Mat divided = new Mat();
     static Mat showy = new Mat();
+    static Mat yuv = new Mat();
 
     static Mat elem = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(8, 1), new Point(4, 0));
     static Mat none = new Mat();
@@ -30,26 +31,34 @@ public class RingPipeline {
     public static void main(String[] args) {
         //cv.Controls c = new cv.Controls();
 
-        var files = new String[]{"1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"
-        , "e1.png", "e2.png", "e3.png", "e4.png", "n1.jpg", "n2.jpg", "n3.jpg",
-        "q1.jpg","q2.jpg","q3.jpg","q4.jpg","q5.jpg", "q6.jpg","q7.jpg","q8.jpg",
-        "q9.jpg","q10.jpg", "q11.jpg","q12.jpg","q13.jpg","q14.jpg","q15.jpg",
+        var files = new String[]{"1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"//5
+        , "e1.png", "e2.png", "e3.png", "e4.png", "n1.jpg", "n2.jpg", "n3.jpg",//12
+        "q1.jpg","q2.jpg","q3.jpg","q4.jpg","q5.jpg", "q6.jpg","q7.jpg","q8.jpg",//20
+        "q9.jpg","q10.jpg", "q11.jpg","q12.jpg","q13.jpg","q14.jpg","q15.jpg",//28
         "q16.jpg"};
 
-        /*
-        // 1 - 6
-        for(int i = 25; i < 29; i++) {
+
+        // 25
+        for(int i = 0; i < 29; i++) {
             String name = files[i];
             String url = "D:/OneDrive/Desktop/cv/" + name ;
             System.out.println(url);
             Mat in = Imgcodecs.imread(url);
 
-            process(in);
+            long start = System.currentTimeMillis();
+            for(var r:process(in)){
+                //drawRotatedRect(r, in, 4);
+            }
+
+            Imgproc.putText(in, String.valueOf(System.currentTimeMillis() - start), new Point(20, 20),
+                    Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, new Scalar(255, 0,255), 2);
 
             HighGui.waitKey();
             in.release();
-        }*/
+        }
+        System.exit(0);
 
+        /*
         VideoCapture capture = new VideoCapture();
         capture.open(0);
         while (capture.isOpened()){
@@ -61,29 +70,48 @@ public class RingPipeline {
             HighGui.waitKey(1);
             in.release();
         }
-        capture.release();
-
-        //System.exit(0);
+        capture.release();*/
 
     }
     public static List<RotatedRect> process(Mat in){
 
-        Long start = System.currentTimeMillis();
-
         Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);
+        /*int sizex = 640 * 3;
+        int sizey = 480 * 3;
 
-            //HighGui.imshow("original", in);
+        sizex = Math.min(sizex, in.cols());
+        sizey = Math.min(sizey, in.rows());
+
+        in = new Mat(in, new Rect(in.cols()/2 - sizex/2, in.rows()/2 - sizey/2, sizex, sizey));
+        Imgproc.resize(in, in, new Size(640, 480), 0, 0, Imgproc.INTER_LINEAR);*/
+
+
 
         //happens once per image size
         if(showy.cols() != in.cols() || showy.rows() != in.rows())
             showy = new Mat(in.rows(), in.cols(),CvType.CV_8UC3);
 
-        Mat yuv = new Mat();
+        CLAHE c = Imgproc.createCLAHE(15, new Size(2, 2));
+        var channelsff = new ArrayList<Mat>();
+        Core.split(in, channelsff);
+        c.apply(channelsff.get(0), channelsff.get(0));
+        c.apply(channelsff.get(1), channelsff.get(1));
+        c.apply(channelsff.get(2), channelsff.get(2));
+        Core.merge(channelsff, in);
+
+
         Imgproc.cvtColor(in, yuv, Imgproc.COLOR_BGR2Lab);
+
+        //get Y
+        channelsff = new ArrayList<Mat>();
+        Core.split(yuv, channelsff);
+        Mat Y = channelsff.get(0);
 
         //find medians
         Scalar medians = median(yuv)    ;
         System.out.println("medians " + medians);
+
+            //HighGui.imshow("YYYY", Y);
 
         //get differences to median
         var diffs = new Mat();
@@ -101,62 +129,60 @@ public class RingPipeline {
         Mat color = new Mat();
         Core.add(channels.get(1), channels.get(2), color);
 
-            HighGui.imshow("color", color);
+            //HighGui.imshow("color", color);
 
         //yellow range
-        Core.inRange(color, new Scalar(30), new Scalar(255), inRange);
-        Core.bitwise_and(value, inRange, value);
+        Core.inRange(color, new Scalar(15), new Scalar(255), inRange);
+        Core.bitwise_and(Y, inRange, value);
 
-            //HighGui.imshow("inRange", inRange);
+            //HighGui.imshow("value", value);
 
         //edges
         sobel(value, edge);
 
-            //HighGui.imshow("edge", edge.clone());
+            //HighGui.imshow("thin edges", edge.clone());
 
-        //binarize the value of edges
-        binarizedEdges = new Mat();
-        Core.inRange(edge, new Scalar(20), new Scalar(255), binarizedEdges);
+        Imgproc.erode(edge, edge,
+                Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(2,2)));
+        Imgproc.dilate(edge, edge,
+                Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5,1), new Point(2, 0)));
 
-            //HighGui.imshow("thin edges", binarizedEdges.clone());
-
-        //dilate the boundaries of the binarized edges
-        Mat peripheralEdges = new Mat(); Mat smallerInRange = new Mat();
-        //get a Mat of just the boundaries of binarizedEdges
-        Imgproc.erode(inRange, smallerInRange, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(15,15)));
-        Core.subtract(binarizedEdges, smallerInRange, peripheralEdges);
-        //dilate this boundary
-        Imgproc.dilate(peripheralEdges, peripheralEdges, elem);
-        //add the dilation to the original binarizeEdges
-        Core.add(peripheralEdges, binarizedEdges, binarizedEdges);
-
-            //HighGui.imshow("Binarized edge", binarizedEdges);
+            //HighGui.imshow("Binarized edge", edge.clone());
 
         //split region of interest by edges
-        Core.subtract(inRange, binarizedEdges, divided);
+        Core.multiply(edge, new Scalar(1.5), edge);
 
-           // HighGui.imshow("divided", divided);
+            //HighGui.imshow("Binarized edge2", edge.clone());
+
+        Core.subtract(value, edge, divided);
+
+        //shave pesky edges
+        Imgproc.erode(divided, divided,
+                Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5,5), new Point(2,2)));
+
+            //HighGui.imshow("divided ", divided.clone());
+
+        Core.inRange(divided, new Scalar(20), new Scalar(255), divided);
+
+            HighGui.imshow("divided threshed", divided);
 
         //find contours
         List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(divided, contours, none, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
         //filter contours
-        List<RotatedRect> bb = filterContours(contours, 120);
+        List<RotatedRect> bb = filterContours(contours, 30);
 
         //draw contours
         Imgproc.rectangle(showy, new Point(0,0), new Point(showy.cols(), showy.rows()), new Scalar(0,0,0), -1);
-        drawContours(contours, showy);
+        drawContours(contours, in);
+
+        for(var r:bb){
+            drawRotatedRect(r, in, 2);
+        }
 
             HighGui.imshow("showy", in);
             //Imgcodecs.imwrite("Output " + currName, showy);
-
-        for(var r:bb){
-            drawRotatedRect(r, in, 4);
-        }
-
-        Imgproc.putText(in, String.valueOf(System.currentTimeMillis() - start), new Point(20, 20),
-                Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, new Scalar(255, 0,255), 2);
 
         return bb;
     }
@@ -175,7 +201,7 @@ public class RingPipeline {
         Core.split(clone, channels);
 
         int i = 0;
-        for(Mat m : channels) { ;
+        for(Mat m : channels) {
             short[] buff = new short[(int) (m.total() * m.channels())];
             m.get(0, 0, buff);
             medians[i] = QuickSelect.median(buff);
@@ -189,27 +215,27 @@ public class RingPipeline {
         var boundingRects = new ArrayList<RotatedRect>();
         var contours = new ArrayList<MatOfPoint>();
 
-        for(int i=0;i<inp.size();i++){
-            if(Imgproc.contourArea(inp.get(i)) < size) {
+        for (MatOfPoint contour : inp) {
+            if (Imgproc.contourArea(contour) < size) {
                 continue;
             }
 
             //bounding box
-            RotatedRect bound = Imgproc.minAreaRect(new MatOfPoint2f(inp.get(i).toArray()));
+            RotatedRect bound = Imgproc.minAreaRect(new MatOfPoint2f(contour.toArray()));
 
-            int toUpright = (int)(bound.angle - -45);
-            int turnsToRight = toUpright/90 + toUpright<0 ? 1:0;
-            boolean isUpright = turnsToRight%2 == 0;
+            int toUpright = (int) (bound.angle - -45);
+            int turnsToRight = toUpright / 90 + toUpright < 0 ? 1 : 0;
+            boolean isUpright = turnsToRight % 2 == 0;
 
             if (isUpright) {
-                if (bound.size.width > bound.size.height * 2) {
+                if (bound.size.width > bound.size.height * 1) {
                     boundingRects.add(bound);
-                    contours.add(inp.get(i));
+                    contours.add(contour);
                 }
-            }else{
-                if (bound.size.height > bound.size.width * 2) {
+            } else {
+                if (bound.size.height > bound.size.width * 1) {
                     boundingRects.add(bound);
-                    contours.add(inp.get(i));
+                    contours.add(contour);
                 }
             }
 
@@ -243,10 +269,10 @@ public class RingPipeline {
     }
 
     //Not memory safe
-    public static void distance (Mat inp, double thresh, Mat out){
+    public static void distance(Mat inp, double thresh){
         //distance transform
 
-        out = new Mat(inp.rows(), inp.cols(), CvType.CV_8UC1);
+        Mat out = new Mat(inp.rows(), inp.cols(), CvType.CV_8UC1);
         Imgproc.distanceTransform(inp, out, Imgproc.DIST_C, 3);
         // [70, 255]
         Imgproc.threshold(out, out, thresh, 255, Imgproc.THRESH_BINARY);
@@ -273,12 +299,12 @@ public class RingPipeline {
 
     public static void sobel(Mat inp, Mat edge){
         Mat edgeY = new Mat();
-        Imgproc.Sobel(inp, edgeY, -1, 0, 1, 3, 1);
+        Imgproc.Sobel(inp, edgeY, -1, 0, 1, Imgproc.FILTER_SCHARR, 1);
 
         Mat edgeX = new Mat();
-        Imgproc.Sobel(inp, edgeX, -1, 0, 1, 3, 1);
+        Imgproc.Sobel(inp, edgeX, -1, 0, 1, Imgproc.FILTER_SCHARR, 1);
 
-        Core.addWeighted(edgeX, 0.5, edgeY, 0.5, 0, edge);
+        Core.addWeighted(edgeX, 0.3, edgeY, 0.3, 0, edge);
 
         edgeY.release();
         edgeX.release();
@@ -327,7 +353,7 @@ public class RingPipeline {
     static void showHistogram(Mat frame, boolean gray)
     {
         // split the frames in multiple images
-        List<Mat> images = new ArrayList<Mat>();
+        List<Mat> images = new ArrayList<>();
         Core.split(frame, images);
 
         // set the number of bins at 256

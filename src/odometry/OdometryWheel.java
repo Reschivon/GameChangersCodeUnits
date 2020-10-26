@@ -28,7 +28,8 @@ public abstract class OdometryWheel {
         prevTicks += deltaTicks;
         //get ticks
         double measurement = getRaw();
-        deltaTicks = RotationUtil.turnLeftOrRight(prevTicks, measurement, ticksPerRev);
+        //deltaTicks = RotationUtil.turnLeftOrRight(prevTicks, measurement, ticksPerRev);
+        deltaTicks = measurement - prevTicks;
     }
 
     /**
